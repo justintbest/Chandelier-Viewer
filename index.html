@@ -337,7 +337,7 @@ pendants.forEach((p, i) => {
 });
 const wireGeo = new THREE.BufferGeometry();
 wireGeo.setAttribute('position', new THREE.BufferAttribute(wirePositions, 3));
-const wireMat = new THREE.LineBasicMaterial({ color: 0x8899bb, transparent: true, opacity: 0.45 });
+const wireMat = new THREE.LineBasicMaterial({ color: 0xddeeff, transparent: true, opacity: 0.85 });
 scene.add(new THREE.LineSegments(wireGeo, wireMat));
 
 // Ceiling plane
