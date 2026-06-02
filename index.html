@@ -202,7 +202,7 @@ const pendants = RAW.map((r, i) => ({
   index: i,
   cRaw: r[0], yRaw: r[1], zRaw: r[2],
   x: r[3] / 12,  // C → Three.js X
-  z: r[4] / 12,  // Y → Three.js Z (depth/length)
+  z: -r[4] / 12,  // Y → Three.js Z (depth/length, negated to match physical orientation)
   y: r[5] / 12,  // Z → Three.js Y (elevation)
 }));
 
