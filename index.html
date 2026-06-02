@@ -201,7 +201,7 @@ const RAW = [["47' - 3\"","135' - 4\"","40' - 9 215/256\"",567.0,1624.0,489.8398
 const pendants = RAW.map((r, i) => ({
   index: i,
   cRaw: r[0], yRaw: r[1], zRaw: r[2],
-  x: r[3] / 12,  // C → Three.js X
+  x: -r[3] / 12,  // C → Three.js X (negated to match physical orientation)
   z: r[4] / 12,  // Y → Three.js Z (depth/length)
   y: r[5] / 12,  // Z → Three.js Y (elevation)
 }));
