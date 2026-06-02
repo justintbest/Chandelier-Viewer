@@ -273,6 +273,9 @@ const cy = (Math.min(...pendants.map(p => p.y)) + Math.max(...pendants.map(p => 
 const cz = (Math.min(...pendants.map(p => p.z)) + Math.max(...pendants.map(p => p.z))) / 2;
 pendants.forEach(p => { p.x -= cx; p.y -= cy; p.z -= cz; });
 
+// Ceiling at 51'2" = 614 inches = 614/12 feet, offset by same cy used for pendant Y
+const ceilingY = (614 / 12) - cy;
+
 // --- Scene setup ---
 const container = document.getElementById('canvas-container');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -321,6 +324,29 @@ pendants.forEach((p, i) => {
 });
 instancedMesh.instanceMatrix.needsUpdate = true;
 scene.add(instancedMesh);
+
+// Wires from each pendant up to ceiling
+const wirePositions = new Float32Array(pendants.length * 6); // 2 points × 3 components
+pendants.forEach((p, i) => {
+  wirePositions[i * 6 + 0] = p.x;
+  wirePositions[i * 6 + 1] = p.y;
+  wirePositions[i * 6 + 2] = p.z;
+  wirePositions[i * 6 + 3] = p.x;
+  wirePositions[i * 6 + 4] = ceilingY;
+  wirePositions[i * 6 + 5] = p.z;
+});
+const wireGeo = new THREE.BufferGeometry();
+wireGeo.setAttribute('position', new THREE.BufferAttribute(wirePositions, 3));
+const wireMat = new THREE.LineBasicMaterial({ color: 0x8899bb, transparent: true, opacity: 0.45 });
+scene.add(new THREE.LineSegments(wireGeo, wireMat));
+
+// Ceiling plane
+const ceilGeo = new THREE.PlaneGeometry(12, 48);
+const ceilMat = new THREE.MeshStandardMaterial({ color: 0x2a2e3c, roughness: 1, metalness: 0, side: THREE.DoubleSide });
+const ceilMesh = new THREE.Mesh(ceilGeo, ceilMat);
+ceilMesh.rotation.x = Math.PI / 2;
+ceilMesh.position.y = ceilingY;
+scene.add(ceilMesh);
 
 // Selected pendant sphere
 const selMesh = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 10), matSelected);
