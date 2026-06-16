@@ -436,7 +436,7 @@ function selectPendant(oneBasedNum) {
   const p = pendants[idx];
   valC.textContent = p.cRaw;
   valY.textContent = p.yRaw;
-  valZ.textContent = rationalized ? fmtRatZ(RAT_Z[idx]) : p.zRaw;
+  valZ.textContent = fmtRatZ(RAT_Z[idx]);
 
   // Move selected sphere
   selMesh.position.set(p.x, p.y, p.z);
