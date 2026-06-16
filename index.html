@@ -479,7 +479,7 @@ renderer.domElement.addEventListener('mousemove', e => {
     tooltip.style.display = 'block';
     tooltip.style.left = (e.clientX - rect.left + 12) + 'px';
     tooltip.style.top = (e.clientY - rect.top - 8) + 'px';
-    tooltip.textContent = `Pendant ${p.grid}  C: ${p.cRaw}  Y: ${p.yRaw}  Z: ${p.zRaw}`;
+    tooltip.textContent = `Pendant ${p.grid}  C: ${p.cRaw}  Y: ${p.yRaw}  Z: ${fmtRatZ(RAT_Z[p.index])}`;
     renderer.domElement.style.cursor = 'pointer';
   } else {
     tooltip.style.display = 'none';
