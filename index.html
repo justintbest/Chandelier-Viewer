@@ -480,7 +480,7 @@ function selectPendant(oneBasedNum) {
   const p = pendants[idx];
   valC.textContent = p.cRaw;
   valY.textContent = p.yRaw;
-  valZ.textContent = fmtRatZ(RAT_Z[idx]);
+  valZ.textContent = rationalized ? fmtRatZ(RAT_Z[idx]) : p.zRaw;
 
   // Move selected sphere
   selMesh.position.set(p.x, p.y, p.z);
@@ -549,7 +549,7 @@ window.addEventListener('resize', () => {
 
 // Rationalize toggle
 const origY = pendants.map(p => p.y);
-let rationalized = false;
+let rationalized = true;
 
 function fmtRatZ(inches) {
   const ft = Math.floor(inches / 12);
@@ -605,7 +605,7 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-selectPendant(1);
+applyZMode(true);
 animate();
 </script>
 </body>
