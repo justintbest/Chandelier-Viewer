@@ -394,7 +394,7 @@ scene.add(fillLight);
 
 // Grid helper (subtle)
 const grid = new THREE.GridHelper(60, 20, 0x222233, 0x1a1a2a);
-grid.position.y = -4;
+grid.position.y = 0;
 scene.add(grid);
 
 // Pendant geometry (shared)
@@ -592,8 +592,8 @@ themeBtn.addEventListener('click', () => {
   grid.material[1].color.set(lightMode ? 0xccccbb : 0x1a1a2a);
   ceilMesh.material.color.set(lightMode ? 0xe0e0d8 : 0x2a2e3c);
   wireMat.color.set(lightMode ? 0x000000 : 0xddeeff);
+  wireMat.opacity = lightMode ? 1.0 : 0.85;
   matNormal.color.set(lightMode ? 0x335577 : 0xaabbdd);
-  grid.position.y = lightMode ? 0 : -4;
 });
 
 // Animate
