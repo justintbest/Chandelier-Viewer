@@ -591,8 +591,9 @@ themeBtn.addEventListener('click', () => {
   grid.material[0].color.set(lightMode ? 0xbbbbaa : 0x222233);
   grid.material[1].color.set(lightMode ? 0xccccbb : 0x1a1a2a);
   ceilMesh.material.color.set(lightMode ? 0xe0e0d8 : 0x2a2e3c);
-  wireMat.color.set(lightMode ? 0x445566 : 0xddeeff);
+  wireMat.color.set(lightMode ? 0x000000 : 0xddeeff);
   matNormal.color.set(lightMode ? 0x335577 : 0xaabbdd);
+  grid.position.y = lightMode ? 0 : -4;
 });
 
 // Animate
