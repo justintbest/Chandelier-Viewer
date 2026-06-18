@@ -269,6 +269,56 @@
     color: #d4aa6e;
   }
 
+  #grid-plan-btn {
+    width: 100%;
+    padding: 9px 12px;
+    background: #2a2e3a;
+    border: 1px solid #454a5c;
+    border-radius: 6px;
+    color: #e8e8e8;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  #grid-plan-btn:hover { background: #353a4a; border-color: #d4aa6e; }
+
+  #grid-plan-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: #ffffff;
+    z-index: 50;
+    overflow: auto;
+  }
+  #grid-plan-overlay.open { display: block; }
+  #grid-plan-scroll {
+    min-width: 100%;
+    min-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  #grid-plan-close {
+    position: fixed;
+    top: 16px;
+    right: 24px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid #999;
+    background: #fff;
+    color: #333;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 51;
+  }
+  #grid-plan-close:hover { background: #eee; }
+
   /* ── Light mode overrides ── */
   body.light { background: #f0f0ec; color: #1a1a1a; }
   body.light #sidebar { background: #ffffff; border-right-color: #d0d0c8; }
@@ -288,6 +338,8 @@
   body.light #grid-labels-btn { background: #f0f0ec; border-color: #bbb; color: #1a1a1a; }
   body.light #grid-labels-btn:hover { background: #e8e8e0; border-color: #8b6914; }
   body.light #grid-labels-btn.active { background: #f5e8cc; border-color: #8b6914; color: #8b6914; }
+  body.light #grid-plan-btn { background: #f0f0ec; border-color: #bbb; color: #1a1a1a; }
+  body.light #grid-plan-btn:hover { background: #e8e8e0; border-color: #8b6914; }
   body.light #slider-bar { background: rgba(255,255,252,0.92); border-color: rgba(139,105,20,0.35); }
   body.light #slider-label { color: #888; }
   body.light #slider-readout { color: #8b6914; }
@@ -329,6 +381,7 @@
   <button id="rationalize-btn">Rationalize</button>
   <button id="theme-btn">Light Mode</button>
   <button id="grid-labels-btn" class="active">Hide Grid Labels</button>
+  <button id="grid-plan-btn">2D Grid Plan</button>
 
   <p class="hint">Drag to orbit &nbsp;·&nbsp; Scroll to zoom<br>Right-drag to pan<br>← → arrow keys to step</p>
 </div>
@@ -336,6 +389,11 @@
 <div id="canvas-container">
   <div id="tooltip"></div>
   <div id="scale-note">Scale: 3/32" = 1'-0"</div>
+
+  <div id="grid-plan-overlay">
+    <button id="grid-plan-close">&times;</button>
+    <div id="grid-plan-scroll"></div>
+  </div>
 
   <div id="slider-bar">
     <div id="slider-header">
@@ -857,6 +915,138 @@ gridLabelsBtn.addEventListener('click', () => {
   gridLabelsBtn.classList.toggle('active', gridAnnotations.visible);
   scaleNote.style.display = gridAnnotations.visible ? 'block' : 'none';
 });
+
+// --- 2D Grid Plan: a true vector (SVG) reproduction of the architectural
+// RCP dimensioning sheet, drawn from the real pendant grid data. ---
+function buildGridPlanSVG() {
+  const rowXs = GRID_ROWS.map((_, r) => pendants[r * GRID_COLS].x);
+  const colZs = Array.from({ length: GRID_COLS }, (_, c) => pendants[c].z);
+  const rowFirstX = rowXs[0], rowLastX = rowXs[rowXs.length - 1];
+  const colFirstZ = colZs[0], colLastZ = colZs[colZs.length - 1];
+  const rowSpanInches = Math.abs(rowLastX - rowFirstX) * 12;
+  const colSpanInches = Math.abs(colLastZ - colFirstZ) * 12;
+
+  const contentWidth = 1000;
+  const pxPerFt = contentWidth / (colSpanInches / 12);
+  const contentHeight = (rowSpanInches / 12) * pxPerFt;
+
+  const marginLeft = 140, marginTop = 90, marginRight = 160, marginBottom = 210;
+  const svgWidth = marginLeft + contentWidth + marginRight;
+  const svgHeight = marginTop + contentHeight + marginBottom;
+
+  const colX = z => marginLeft + ((z - colFirstZ) / (colLastZ - colFirstZ)) * contentWidth;
+  const rowY = x => marginTop + ((x - rowFirstX) / (rowLastX - rowFirstX)) * contentHeight;
+
+  const structOffsetInches = 74; // 6'-2", inferred — see note in 3D annotations
+  const colFrac = structOffsetInches / colSpanInches;
+  const zF = colFirstZ + (colLastZ - colFirstZ) * colFrac;
+  const zG = colLastZ - (colLastZ - colFirstZ) * colFrac;
+  const xF = colX(zF), xG = colX(zG);
+
+  const parts = [];
+  parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" font-family="sans-serif">`);
+  parts.push(`<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,1 L7,4 L0,7" fill="none" stroke="#333" stroke-width="1"/></marker></defs>`);
+  parts.push(`<rect x="0" y="0" width="${svgWidth}" height="${svgHeight}" fill="#ffffff"/>`);
+
+  // Highlight bands (green = rows, orange = columns)
+  parts.push(`<rect x="${marginLeft - 55}" y="${marginTop - 14}" width="44" height="${contentHeight + 28}" fill="#90ee90" opacity="0.6"/>`);
+  parts.push(`<rect x="${marginLeft - 14}" y="${marginTop - 58}" width="${contentWidth + 28}" height="28" fill="#f4a460" opacity="0.55"/>`);
+
+  // Dashed projection ticks per column / per row
+  let ticks = '';
+  for (let c = 0; c < GRID_COLS; c++) {
+    const x = colX(colZs[c]);
+    ticks += `<line x1="${x}" y1="${marginTop - 14}" x2="${x}" y2="${marginTop + contentHeight + 14}" stroke="#aaa" stroke-width="0.75" stroke-dasharray="4,3"/>`;
+  }
+  GRID_ROWS.forEach((_, r) => {
+    const y = rowY(rowXs[r]);
+    ticks += `<line x1="${marginLeft - 14}" y1="${y}" x2="${marginLeft + contentWidth + 14}" y2="${y}" stroke="#aaa" stroke-width="0.75" stroke-dasharray="4,3"/>`;
+  });
+  parts.push(ticks);
+
+  // F / G structural grid lines with circle bubbles
+  [['F', xF], ['G', xG]].forEach(([letter, x]) => {
+    parts.push(`<line x1="${x}" y1="${marginTop - 70}" x2="${x}" y2="${marginTop + contentHeight + 40}" stroke="#555" stroke-width="1" stroke-dasharray="6,3,1.5,3"/>`);
+    parts.push(`<circle cx="${x}" cy="${marginTop - 90}" r="18" fill="#fff" stroke="#333" stroke-width="1.5"/>`);
+    parts.push(`<text x="${x}" y="${marginTop - 90}" text-anchor="middle" dominant-baseline="central" font-size="16" font-weight="700" fill="#222">${letter}</text>`);
+  });
+
+  // Pendant dots
+  let dots = '';
+  for (let r = 0; r < GRID_ROWS.length; r++) {
+    for (let c = 0; c < GRID_COLS; c++) {
+      const p = pendants[r * GRID_COLS + c];
+      dots += `<circle cx="${colX(p.z)}" cy="${rowY(p.x)}" r="3" fill="none" stroke="#222" stroke-width="1"/>`;
+    }
+  }
+  parts.push(dots);
+
+  // Row letters
+  let rowLabels = '';
+  GRID_ROWS.forEach((letter, r) => {
+    rowLabels += `<text x="${marginLeft - 33}" y="${rowY(rowXs[r])}" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="700" fill="#1a1a1a">${letter}</text>`;
+  });
+  parts.push(rowLabels);
+
+  // Column numbers
+  let colLabels = '';
+  for (let c = 0; c < GRID_COLS; c++) {
+    colLabels += `<text x="${colX(colZs[c])}" y="${marginTop - 44}" text-anchor="middle" font-size="11" fill="#1a1a1a">${c + 1}</text>`;
+  }
+  parts.push(colLabels);
+
+  // Dimension helper (horizontal, with arrowheads + extension ticks)
+  function hDim(x1, x2, y, label) {
+    return `
+      <line x1="${x1}" y1="${y - 8}" x2="${x1}" y2="${y + 8}" stroke="#333" stroke-width="1"/>
+      <line x1="${x2}" y1="${y - 8}" x2="${x2}" y2="${y + 8}" stroke="#333" stroke-width="1"/>
+      <line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="#333" stroke-width="1" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+      <text x="${(x1 + x2) / 2}" y="${y - 10}" text-anchor="middle" font-size="13" fill="#1a1a1a">${label}</text>`;
+  }
+  function vDim(y1, y2, x, label) {
+    return `
+      <line x1="${x - 8}" y1="${y1}" x2="${x + 8}" y2="${y1}" stroke="#333" stroke-width="1"/>
+      <line x1="${x - 8}" y1="${y2}" x2="${x + 8}" y2="${y2}" stroke="#333" stroke-width="1"/>
+      <line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="#333" stroke-width="1" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+      <text x="${x}" y="${(y1 + y2) / 2}" text-anchor="middle" font-size="13" fill="#1a1a1a" transform="rotate(-90 ${x} ${(y1 + y2) / 2})">${label}</text>`;
+  }
+
+  const dimY1 = marginTop + contentHeight + 50;
+  const dimY2 = marginTop + contentHeight + 100;
+  parts.push(hDim(marginLeft, xF, dimY1, fmtFeetInches(structOffsetInches)));
+  parts.push(hDim(xG, marginLeft + contentWidth, dimY1, fmtFeetInches(structOffsetInches)));
+  parts.push(hDim(marginLeft, marginLeft + contentWidth, dimY2, fmtFeetInches(colSpanInches)));
+  parts.push(vDim(marginTop, marginTop + contentHeight, marginLeft + contentWidth + 60, fmtFeetInches(rowSpanInches)));
+
+  // 4'-0" datum dimensions (assumed, mirrored at both ends — no real wall reference in the data)
+  parts.push(vDim(marginTop, dimY1, marginLeft - 100, `${fmtFeetInches(48)} (assumed)`));
+  parts.push(vDim(marginTop, dimY1, marginLeft + contentWidth + 100, `${fmtFeetInches(48)} (assumed)`));
+
+  // Decorative detail callout, generic sheet convention
+  const dx = svgWidth - 50, dy = svgHeight - 50;
+  parts.push(`<line x1="${marginLeft + contentWidth}" y1="${marginTop + contentHeight}" x2="${dx}" y2="${dy}" stroke="#555" stroke-width="1" stroke-dasharray="6,3,1.5,3"/>`);
+  parts.push(`<circle cx="${dx}" cy="${dy}" r="18" fill="#fff" stroke="#333" stroke-width="1.5"/>`);
+  parts.push(`<text x="${dx}" y="${dy}" text-anchor="middle" dominant-baseline="central" font-size="16" font-weight="700" fill="#222">2</text>`);
+
+  parts.push(`<text x="${svgWidth - 16}" y="${svgHeight - 14}" text-anchor="end" font-size="13" fill="#444">Scale: 3/32" = 1'-0"</text>`);
+
+  parts.push('</svg>');
+  return parts.join('');
+}
+
+const gridPlanBtn = document.getElementById('grid-plan-btn');
+const gridPlanOverlay = document.getElementById('grid-plan-overlay');
+const gridPlanScroll = document.getElementById('grid-plan-scroll');
+const gridPlanClose = document.getElementById('grid-plan-close');
+let gridPlanBuilt = false;
+gridPlanBtn.addEventListener('click', () => {
+  if (!gridPlanBuilt) {
+    gridPlanScroll.innerHTML = buildGridPlanSVG();
+    gridPlanBuilt = true;
+  }
+  gridPlanOverlay.classList.add('open');
+});
+gridPlanClose.addEventListener('click', () => gridPlanOverlay.classList.remove('open'));
 
 // Animate
 let t = 0;
