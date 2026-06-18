@@ -392,16 +392,17 @@ const fillLight = new THREE.DirectionalLight(0xaabbff, 0.5);
 fillLight.position.set(-10, -5, -10);
 scene.add(fillLight);
 
-// Grid helper (subtle)
+// Grid helper (subtle) — sits at project space Z=0 (the floor)
+const floorY = -cy;
 let grid = new THREE.GridHelper(60, 20, 0x222233, 0x1a1a2a);
-grid.position.y = 0;
+grid.position.y = floorY;
 scene.add(grid);
 function setGridColors(centerColor, gridColor) {
   scene.remove(grid);
   grid.geometry.dispose();
   grid.material.dispose();
   grid = new THREE.GridHelper(60, 20, centerColor, gridColor);
-  grid.position.y = 0;
+  grid.position.y = floorY;
   scene.add(grid);
 }
 
