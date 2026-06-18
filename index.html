@@ -236,6 +236,27 @@
   }
   #theme-btn:hover { background: #353a4a; border-color: #d4aa6e; }
 
+  #grid-labels-btn {
+    width: 100%;
+    padding: 9px 12px;
+    background: #2a2e3a;
+    border: 1px solid #454a5c;
+    border-radius: 6px;
+    color: #e8e8e8;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  #grid-labels-btn:hover { background: #353a4a; border-color: #d4aa6e; }
+  #grid-labels-btn.active {
+    background: #3a2e1a;
+    border-color: #d4aa6e;
+    color: #d4aa6e;
+  }
+
   /* ── Light mode overrides ── */
   body.light { background: #f0f0ec; color: #1a1a1a; }
   body.light #sidebar { background: #ffffff; border-right-color: #d0d0c8; }
@@ -252,6 +273,9 @@
   body.light #rationalize-btn.active { background: #f5e8cc; border-color: #8b6914; color: #8b6914; }
   body.light #theme-btn { background: #f0f0ec; border-color: #bbb; color: #1a1a1a; }
   body.light #theme-btn:hover { background: #e8e8e0; border-color: #8b6914; }
+  body.light #grid-labels-btn { background: #f0f0ec; border-color: #bbb; color: #1a1a1a; }
+  body.light #grid-labels-btn:hover { background: #e8e8e0; border-color: #8b6914; }
+  body.light #grid-labels-btn.active { background: #f5e8cc; border-color: #8b6914; color: #8b6914; }
   body.light #slider-bar { background: rgba(255,255,252,0.92); border-color: rgba(139,105,20,0.35); }
   body.light #slider-label { color: #888; }
   body.light #slider-readout { color: #8b6914; }
@@ -292,6 +316,7 @@
 
   <button id="rationalize-btn">Rationalize</button>
   <button id="theme-btn">Light Mode</button>
+  <button id="grid-labels-btn">Show Grid Labels</button>
 
   <p class="hint">Drag to orbit &nbsp;·&nbsp; Scroll to zoom<br>Right-drag to pan<br>← → arrow keys to step</p>
 </div>
@@ -404,6 +429,100 @@ function setGridColors(centerColor, gridColor) {
   grid = new THREE.GridHelper(60, 20, centerColor, gridColor);
   grid.position.y = floorY;
   scene.add(grid);
+}
+
+// --- Grid dimensioning annotations (rows A-J × columns 1-53) ---
+function fmtFeetInches(inches) {
+  const sign = inches < 0 ? '-' : '';
+  inches = Math.abs(inches);
+  const ft = Math.floor(inches / 12);
+  const inch = Math.round((inches % 12) * 100) / 100;
+  return `${sign}${ft}' - ${inch}"`;
+}
+
+function makeTextSprite(text, opts = {}) {
+  const fontSize = opts.fontSize || 48;
+  const color = opts.color || '#d4aa6e';
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.font = `700 ${fontSize}px sans-serif`;
+  const metrics = ctx.measureText(text);
+  canvas.width = Math.ceil(metrics.width) + 24;
+  canvas.height = fontSize * 1.6;
+  ctx.font = `700 ${fontSize}px sans-serif`;
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+  const sprite = new THREE.Sprite(material);
+  const scale = (opts.scale || 0.6);
+  sprite.scale.set(scale * (canvas.width / canvas.height), scale, 1);
+  return sprite;
+}
+
+const gridAnnotations = new THREE.Group();
+gridAnnotations.visible = false;
+scene.add(gridAnnotations);
+
+{
+  const minX = Math.min(...pendants.map(p => p.x));
+  const maxX = Math.max(...pendants.map(p => p.x));
+  const minZ = Math.min(...pendants.map(p => p.z));
+  const maxZ = Math.max(...pendants.map(p => p.z));
+  const margin = 1.2;
+  const dimMargin = 2.4;
+  const labelY = ceilingY + 0.05; // RCP labels live at the ceiling plane, not the floor
+  const dimColor = 0x888899;
+  const dimMat = new THREE.LineBasicMaterial({ color: dimColor, transparent: true, opacity: 0.7 });
+
+  function addDimLine(points) {
+    const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+    gridAnnotations.add(new THREE.Line(lineGeo, dimMat));
+  }
+
+  // Row letter labels (A-J), one per distinct X position
+  GRID_ROWS.forEach((letter, r) => {
+    const p = pendants[r * GRID_COLS];
+    const label = makeTextSprite(letter, { color: '#7ec8e3', scale: 0.55 });
+    label.position.set(p.x, labelY, maxZ + margin);
+    gridAnnotations.add(label);
+  });
+
+  // Column number labels (1-53), one per distinct Z position (row A)
+  for (let c = 0; c < GRID_COLS; c++) {
+    const p = pendants[c];
+    if (c % 4 !== 0 && c !== GRID_COLS - 1) continue; // avoid overcrowding
+    const label = makeTextSprite(String(c + 1), { color: '#e3b07e', scale: 0.45 });
+    label.position.set(minX - margin, labelY, p.z);
+    gridAnnotations.add(label);
+  }
+
+  // Overall row span dimension (A → J), drawn along X past the row labels
+  const rowFirstX = pendants[0].x;
+  const rowLastX = pendants[(GRID_ROWS.length - 1) * GRID_COLS].x;
+  const rowSpanInches = Math.abs(rowLastX - rowFirstX) * 12;
+  addDimLine([
+    new THREE.Vector3(rowFirstX, labelY, maxZ + dimMargin),
+    new THREE.Vector3(rowLastX, labelY, maxZ + dimMargin),
+  ]);
+  const rowSpanLabel = makeTextSprite(fmtFeetInches(rowSpanInches), { color: '#888899', scale: 0.5 });
+  rowSpanLabel.position.set((rowFirstX + rowLastX) / 2, labelY, maxZ + dimMargin + 0.6);
+  gridAnnotations.add(rowSpanLabel);
+
+  // Overall column span dimension (1 → 53), drawn along Z past the column labels
+  const colFirstZ = pendants[0].z;
+  const colLastZ = pendants[GRID_COLS - 1].z;
+  const colSpanInches = Math.abs(colLastZ - colFirstZ) * 12;
+  addDimLine([
+    new THREE.Vector3(minX - dimMargin, labelY, colFirstZ),
+    new THREE.Vector3(minX - dimMargin, labelY, colLastZ),
+  ]);
+  const colSpanLabel = makeTextSprite(fmtFeetInches(colSpanInches), { color: '#888899', scale: 0.5 });
+  colSpanLabel.position.set(minX - dimMargin - 0.8, labelY, (colFirstZ + colLastZ) / 2);
+  gridAnnotations.add(colSpanLabel);
 }
 
 // Pendant geometry (shared)
@@ -602,6 +721,14 @@ themeBtn.addEventListener('click', () => {
   wireMat.color.set(lightMode ? 0x000000 : 0xddeeff);
   wireMat.opacity = lightMode ? 1.0 : 0.85;
   wireMat.needsUpdate = true;
+});
+
+// Grid labels toggle
+const gridLabelsBtn = document.getElementById('grid-labels-btn');
+gridLabelsBtn.addEventListener('click', () => {
+  gridAnnotations.visible = !gridAnnotations.visible;
+  gridLabelsBtn.textContent = gridAnnotations.visible ? 'Hide Grid Labels' : 'Show Grid Labels';
+  gridLabelsBtn.classList.toggle('active', gridAnnotations.visible);
 });
 
 // Animate
