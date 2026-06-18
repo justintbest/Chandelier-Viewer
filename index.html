@@ -523,6 +523,68 @@ scene.add(gridAnnotations);
   const colSpanLabel = makeTextSprite(fmtFeetInches(colSpanInches), { color: '#888899', scale: 0.5 });
   colSpanLabel.position.set(minX - dimMargin - 0.8, labelY, (colFirstZ + colLastZ) / 2);
   gridAnnotations.add(colSpanLabel);
+
+  // --- Ghosted structural grid lines (F, G) ---
+  // Architectural convention: structural column lines sit 6'-2" in from the
+  // outermost pendant columns. Inferred from the reference RCP, not directly
+  // present in the pendant data, so this is an approximation.
+  const ghostMat = new THREE.LineDashedMaterial({ color: 0x777788, transparent: true, opacity: 0.55, dashSize: 0.35, gapSize: 0.22 });
+  function addGhostLine(points) {
+    const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.Line(lineGeo, ghostMat);
+    line.computeLineDistances();
+    gridAnnotations.add(line);
+  }
+  function makeGridBubble(letter) {
+    const size = 64;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.strokeStyle = 'rgba(160,160,180,0.85)';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2 - 4, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(210,210,220,0.9)';
+    ctx.font = '700 28px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(letter, size / 2, size / 2 + 2);
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(0.6, 0.6, 1);
+    return sprite;
+  }
+
+  const structOffsetInches = 74; // 6'-2"
+  const colFrac = structOffsetInches / colSpanInches;
+  const zF = colFirstZ + (colLastZ - colFirstZ) * colFrac;
+  const zG = colLastZ - (colLastZ - colFirstZ) * colFrac;
+  const rowSign = Math.sign(rowFirstX - rowLastX) || 1;
+  const xOuter = rowFirstX + rowSign * 0.8; // just beyond row A
+  const xInner = rowLastX - rowSign * 0.2; // just past row J
+
+  [['F', zF], ['G', zG]].forEach(([letter, z]) => {
+    addGhostLine([
+      new THREE.Vector3(xOuter, labelY, z),
+      new THREE.Vector3(xInner, labelY, z),
+    ]);
+    const bubble = makeGridBubble(letter);
+    bubble.position.set(xOuter, labelY, z);
+    gridAnnotations.add(bubble);
+  });
+
+  // 6'-2" sub-dimensions from the outer pendant columns to the F/G structural lines
+  function addSubDim(z1, z2, x) {
+    addDimLine([new THREE.Vector3(x, labelY, z1), new THREE.Vector3(x, labelY, z2)]);
+    const label = makeTextSprite(fmtFeetInches(Math.abs(z2 - z1) * 12), { color: '#888899', scale: 0.4 });
+    label.position.set(x - 0.5, labelY, (z1 + z2) / 2);
+    gridAnnotations.add(label);
+  }
+  const subDimX = minX - dimMargin * 1.7;
+  addSubDim(colFirstZ, zF, subDimX);
+  addSubDim(zG, colLastZ, subDimX);
 }
 
 // Pendant geometry (shared)
