@@ -220,6 +220,18 @@
     z-index: 30;
   }
 
+  #scale-note {
+    position: absolute;
+    bottom: 14px;
+    right: 18px;
+    font-size: 13px;
+    color: #888;
+    font-family: sans-serif;
+    z-index: 15;
+    pointer-events: none;
+  }
+  body.light #scale-note { color: #999; }
+
   #theme-btn {
     width: 100%;
     padding: 9px 12px;
@@ -323,6 +335,7 @@
 
 <div id="canvas-container">
   <div id="tooltip"></div>
+  <div id="scale-note">Scale: 3/32" = 1'-0"</div>
 
   <div id="slider-bar">
     <div id="slider-header">
@@ -483,10 +496,50 @@ scene.add(gridAnnotations);
     gridAnnotations.add(new THREE.Line(lineGeo, dimMat));
   }
 
+  const rowFirstX = pendants[0].x;
+  const rowLastX = pendants[(GRID_ROWS.length - 1) * GRID_COLS].x;
+  const colFirstZ = pendants[0].z;
+  const colLastZ = pendants[GRID_COLS - 1].z;
+  const rowSpanInches = Math.abs(rowLastX - rowFirstX) * 12;
+  const colSpanInches = Math.abs(colLastZ - colFirstZ) * 12;
+  const rowSign = Math.sign(rowFirstX - rowLastX) || 1; // + direction points "beyond row A"
+  const colSign = Math.sign(colFirstZ - colLastZ) || 1; // + direction points "beyond column 1"
+  const xOuter = rowFirstX + rowSign * 0.8; // just beyond row A
+  const xInner = rowLastX - rowSign * 0.2; // just past row J
+  const zOuter = colFirstZ + colSign * 0.8; // just beyond column 1
+  const zInner = colLastZ - colSign * 0.2; // just past column 53
+
+  // --- Highlight bands behind the row/column labels (green = rows, orange = columns) ---
+  function addHighlightBand(width, depth, x, z, color) {
+    const planeGeo = new THREE.PlaneGeometry(width, depth);
+    const planeMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false });
+    const plane = new THREE.Mesh(planeGeo, planeMat);
+    plane.rotation.x = Math.PI / 2;
+    plane.position.set(x, labelY - 0.01, z);
+    gridAnnotations.add(plane);
+  }
+  addHighlightBand(Math.abs(rowLastX - rowFirstX) + 1.4, 0.9, (rowFirstX + rowLastX) / 2, maxZ + margin, 0x6fcf6f);
+  addHighlightBand(0.9, Math.abs(colLastZ - colFirstZ) + 1.4, minX - margin, (colFirstZ + colLastZ) / 2, 0xe39a5c);
+
+  // --- Light dashed projection lines under every row and column (matches the sheet's tick marks) ---
+  const tickMat = new THREE.LineDashedMaterial({ color: 0x55566a, transparent: true, opacity: 0.35, dashSize: 0.25, gapSize: 0.2 });
+  function addTickLine(points) {
+    const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.Line(lineGeo, tickMat);
+    line.computeLineDistances();
+    gridAnnotations.add(line);
+  }
+  for (let c = 0; c < GRID_COLS; c++) {
+    addTickLine([new THREE.Vector3(xOuter, labelY, pendants[c].z), new THREE.Vector3(xInner, labelY, pendants[c].z)]);
+  }
+  GRID_ROWS.forEach((_, r) => {
+    addTickLine([new THREE.Vector3(pendants[r * GRID_COLS].x, labelY, zOuter), new THREE.Vector3(pendants[r * GRID_COLS].x, labelY, zInner)]);
+  });
+
   // Row letter labels (A-J), one per distinct X position
   GRID_ROWS.forEach((letter, r) => {
     const p = pendants[r * GRID_COLS];
-    const label = makeTextSprite(letter, { color: '#7ec8e3', scale: 0.55 });
+    const label = makeTextSprite(letter, { color: '#2e7d32', scale: 0.55 });
     label.position.set(p.x, labelY, maxZ + margin);
     gridAnnotations.add(label);
   });
@@ -495,15 +548,12 @@ scene.add(gridAnnotations);
   for (let c = 0; c < GRID_COLS; c++) {
     const p = pendants[c];
     if (c % 4 !== 0 && c !== GRID_COLS - 1) continue; // avoid overcrowding
-    const label = makeTextSprite(String(c + 1), { color: '#e3b07e', scale: 0.45 });
+    const label = makeTextSprite(String(c + 1), { color: '#b5651d', scale: 0.45 });
     label.position.set(minX - margin, labelY, p.z);
     gridAnnotations.add(label);
   }
 
   // Overall row span dimension (A → J), drawn along X past the row labels
-  const rowFirstX = pendants[0].x;
-  const rowLastX = pendants[(GRID_ROWS.length - 1) * GRID_COLS].x;
-  const rowSpanInches = Math.abs(rowLastX - rowFirstX) * 12;
   addDimLine([
     new THREE.Vector3(rowFirstX, labelY, maxZ + dimMargin),
     new THREE.Vector3(rowLastX, labelY, maxZ + dimMargin),
@@ -513,9 +563,6 @@ scene.add(gridAnnotations);
   gridAnnotations.add(rowSpanLabel);
 
   // Overall column span dimension (1 → 53), drawn along Z past the column labels
-  const colFirstZ = pendants[0].z;
-  const colLastZ = pendants[GRID_COLS - 1].z;
-  const colSpanInches = Math.abs(colLastZ - colFirstZ) * 12;
   addDimLine([
     new THREE.Vector3(minX - dimMargin, labelY, colFirstZ),
     new THREE.Vector3(minX - dimMargin, labelY, colLastZ),
@@ -561,9 +608,6 @@ scene.add(gridAnnotations);
   const colFrac = structOffsetInches / colSpanInches;
   const zF = colFirstZ + (colLastZ - colFirstZ) * colFrac;
   const zG = colLastZ - (colLastZ - colFirstZ) * colFrac;
-  const rowSign = Math.sign(rowFirstX - rowLastX) || 1;
-  const xOuter = rowFirstX + rowSign * 0.8; // just beyond row A
-  const xInner = rowLastX - rowSign * 0.2; // just past row J
 
   [['F', zF], ['G', zG]].forEach(([letter, z]) => {
     addGhostLine([
@@ -585,6 +629,24 @@ scene.add(gridAnnotations);
   const subDimX = minX - dimMargin * 1.7;
   addSubDim(colFirstZ, zF, subDimX);
   addSubDim(zG, colLastZ, subDimX);
+
+  // --- 4'-0" offset dimensions (assumed datum, mirrored at both ends — not derivable from pendant data) ---
+  const datumX = rowLastX - rowSign * 4.0; // 4'-0" beyond row J
+  [colFirstZ - 0.4, colLastZ + 0.4].forEach(z => {
+    addDimLine([new THREE.Vector3(datumX, labelY, z), new THREE.Vector3(rowLastX, labelY, z)]);
+    const label = makeTextSprite(`${fmtFeetInches(48)} (assumed)`, { color: '#888899', scale: 0.35 });
+    label.position.set((datumX + rowLastX) / 2, labelY, z + Math.sign(z) * 0.5 || 0.5);
+    gridAnnotations.add(label);
+  });
+
+  // --- Decorative detail callout (generic sheet convention, no real link) ---
+  const detailBubble = makeGridBubble('2');
+  detailBubble.position.set(datumX - 1.2, labelY, colLastZ + 1.8);
+  gridAnnotations.add(detailBubble);
+  addGhostLine([
+    new THREE.Vector3(rowLastX, labelY, colLastZ + 0.4),
+    new THREE.Vector3(datumX - 1.2, labelY, colLastZ + 1.8),
+  ]);
 }
 
 // Pendant geometry (shared)
@@ -787,10 +849,13 @@ themeBtn.addEventListener('click', () => {
 
 // Grid labels toggle
 const gridLabelsBtn = document.getElementById('grid-labels-btn');
+const scaleNote = document.getElementById('scale-note');
+scaleNote.style.display = gridAnnotations.visible ? 'block' : 'none';
 gridLabelsBtn.addEventListener('click', () => {
   gridAnnotations.visible = !gridAnnotations.visible;
   gridLabelsBtn.textContent = gridAnnotations.visible ? 'Hide Grid Labels' : 'Show Grid Labels';
   gridLabelsBtn.classList.toggle('active', gridAnnotations.visible);
+  scaleNote.style.display = gridAnnotations.visible ? 'block' : 'none';
 });
 
 // Animate
