@@ -316,7 +316,7 @@
 
   <button id="rationalize-btn">Rationalize</button>
   <button id="theme-btn">Light Mode</button>
-  <button id="grid-labels-btn">Show Grid Labels</button>
+  <button id="grid-labels-btn" class="active">Hide Grid Labels</button>
 
   <p class="hint">Drag to orbit &nbsp;·&nbsp; Scroll to zoom<br>Right-drag to pan<br>← → arrow keys to step</p>
 </div>
@@ -464,7 +464,7 @@ function makeTextSprite(text, opts = {}) {
 }
 
 const gridAnnotations = new THREE.Group();
-gridAnnotations.visible = false;
+gridAnnotations.visible = true;
 scene.add(gridAnnotations);
 
 {
